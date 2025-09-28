@@ -1,57 +1,114 @@
 #!/usr/bin/env python3
-"""
-Mininet testbed with 5 routers running a custom OSPF-like
-Intent-aware link state protocol.
-"""
-
 from mininet.net import Mininet
 from mininet.node import Controller, OVSBridge
 from mininet.link import TCLink
 from mininet.cli import CLI
 from mininet.log import setLogLevel
 
-import subprocess
-import os
-
-ROUTER_SCRIPT = "router_daemon.py"
+# Define o nome do script do daemon de roteamento a ser executado em cada host.
+ROUTER_SCRIPT = "router_script.py"
+# Define a porta base para a comunicação entre os daemons. Cada roteador rN usará a porta (PORT_BASE + N).
+PORT_BASE = 10000
 
 def start_network():
+    """
+    Cria e configura a topologia de rede no Mininet.
+    """
+    # Inicializa o Mininet. TCLink permite configurar parâmetros como delay e largura de banda.
     net = Mininet(controller=Controller, link=TCLink, switch=OVSBridge)
 
-    routers = [net.addHost(f"r{i}") for i in range(1, 6)]
+    # Cria 5 nós (hosts) que funcionarão como roteadores. 
+    # O IP não é definido aqui, pois cada interface terá seu próprio IP.
+    routers = [net.addHost(f"r{i}", ip=None) for i in range(1, 6)]
+    # Desempacota a lista para ter variáveis nomeadas para cada roteador, facilitando a leitura.
+    r1, r2, r3, r4, r5 = routers
 
-    net.addLink(routers[0], routers[1], delay="5ms", bw=100)
-    net.addLink(routers[0], routers[2], delay="2ms", bw=10)
-    net.addLink(routers[1], routers[2], delay="5ms", bw=50)
-    net.addLink(routers[1], routers[4], delay="7ms", bw=80)
-    net.addLink(routers[2], routers[3], delay="1ms", bw=200)
-    net.addLink(routers[3], routers[4], delay="3ms", bw=150)
+    # Define a configuração de todos os links da rede.
+    # Formato: (roteador_origem, roteador_destino, sub-rede, latência, largura_de_banda_em_Mbps)
+    links_config = [
+        (r1, r2, "10.0.12.0/24", "5ms", 100),
+        (r1, r3, "10.0.13.0/24", "2ms", 10),
+        (r2, r3, "10.0.23.0/24", "5ms", 50),
+        (r2, r5, "10.0.25.0/24", "7ms", 80),
+        (r3, r4, "10.0.34.0/24", "1ms", 200),
+        (r4, r5, "10.0.45.0/24", "3ms", 150)
+    ]
+    
+    # Itera sobre a configuração para criar cada link.
+    for src, dst, subnet, delay, bw in links_config:
+        # Define os IPs para cada ponta do link. Ex: 10.0.12.0/24 -> .1 para src, .2 para dst.
+        src_ip = subnet.replace('0/24', '1/24')
+        dst_ip = subnet.replace('0/24', '2/24')
+        # Adiciona o link ao Mininet, configurando os IPs e os parâmetros de qualidade de serviço (QoS).
+        net.addLink(src, dst, delay=delay, bw=bw, params1={'ip': src_ip}, params2={'ip': dst_ip})
 
+    # Inicia a rede. O Mininet constrói a topologia e configura os IPs nas interfaces.
     net.start()
 
-    procs = []
+    print("*** Habilitando encaminhamento IP em todos os roteadores")
+    # Para que um host Linux atue como roteador, o encaminhamento de pacotes IPv4 deve ser ativado.
     for r in routers:
-        neighbors = []
-        for intf in r.intfList():
-            if intf.link:
-                other = intf.link.intf1 if intf.link.intf2.node == r else intf.link.intf2
-                neighbors.append(other.node.name)
+        r.cmd('sysctl -w net.ipv4.ip_forward=1')
 
-        print(r, neighbors)
+    # Lista para manter o controle dos processos dos daemons iniciados.
+    procs = []
+    # Itera sobre cada roteador para iniciar o script par.py.
+    for r in routers:
+        # Monta a lista de argumentos para o comando. Começa com o nome do roteador.
+        cmd_args = [f"python3 {ROUTER_SCRIPT} --name {r.name}"]
+        
+        # Itera sobre todas as interfaces de rede do roteador.
+        for intf in r.intfList():
+            # Processa apenas interfaces que estão conectadas a um link.
+            if intf.link:
+                # Encontra o nó vizinho (peer) na outra ponta do link.
+                peer_node = intf.link.intf1.node if intf.link.intf2.node == r else intf.link.intf2.node
+                # Encontra a interface do vizinho neste mesmo link.
+                peer_intf = intf.link.intf1 if intf.link.intf2.node == r else intf.link.intf2
+                
+                # Obtém o IP exato da interface do vizinho.
+                peer_ip = peer_intf.ip
+                # Recria a string da sub-rede a partir do IP do vizinho.
+                subnet = peer_ip.rsplit('.', 1)[0] + ".0/24"
+                
+                # Obtém os parâmetros (delay, bw) do link.
+                link_params = intf.link.intf1.params
+                delay_ms = int(link_params['delay'].replace('ms', ''))
+                bw_mbps = link_params['bw']
+                # Calcula a porta de escuta do daemon do vizinho.
+                peer_port = PORT_BASE + int(peer_node.name[1:])
+                # O custo é usado pelo algoritmo de roteamento (ex: Dijkstra). Aqui, é fixo.
+                cost = 1
+                
+                # Adiciona os detalhes do link como um argumento para o script do daemon.
+                # Cada link terá seu próprio argumento "--links".
+                cmd_args.append(
+                    f"--links {peer_node.name} {peer_ip} {subnet} {cost} {delay_ms} {bw_mbps} {peer_port}"
+                )
+
+        # Define um arquivo de log para a saída do daemon.
         log_file = f"/tmp/{r.name}.log"
-        cmd = f"python3 {ROUTER_SCRIPT} --name {r.name} --peers " \
-            + " ".join(neighbors) \
-            + f" > {log_file} 2>&1 &"
-        p = r.popen(cmd, shell=True)
+        # Junta todos os argumentos em uma única string de comando.
+        # " > log_file 2>&1 &" redireciona stdout/stderr para o log e executa em segundo plano.
+        full_cmd = " ".join(cmd_args) + f" > {log_file} 2>&1 &"
+        
+        print(f"*** Iniciando daemon em {r.name}...")
+        # Executa o comando no namespace do roteador.
+        p = r.popen(full_cmd, shell=True)
         procs.append(p)
 
-    print("*** Network is ready. Use the CLI.")
+    print("\n*** Rede pronta. Daemons estão convergindo.")
+    print("*** Verifique /tmp/rX.log para a saída dos daemons.")
+    print("*** Use a CLI. Tente 'r1 ping 10.0.45.2' após ~15 segundos.")
+    # Abre a Interface de Linha de Comando (CLI) do Mininet para interação do usuário.
     CLI(net)
 
-    print("*** Stopping routing daemons")
+    print("*** Parando os daemons de roteamento")
+    # Ao sair da CLI, termina todos os processos dos daemons.
     for p in procs:
         p.terminate()
 
+    # Para a simulação da rede.
     net.stop()
 
 if __name__ == "__main__":

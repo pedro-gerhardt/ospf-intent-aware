@@ -5,7 +5,7 @@
     [x] - adicionar lógica de rede
 [] - incrementos de logica
     [] - caso nenhum path atende as restriçoes, pegar o melhor pior possivel
-[] - testes
-    [] - implementar mininet
+[X] - testes
+    [X] - implementar mininet
 [] - comparacao com ospf
 [] - quem sabe adicionar algo a mais? LSAs diferenciais?
