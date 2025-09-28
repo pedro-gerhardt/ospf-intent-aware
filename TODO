@@ -3,6 +3,8 @@
     [] - adicionar routing table
     [] - adicionar LSAs
     [] - adicionar lógica de rede
+[] - incrementos de logica
+    [] - caso nenhum path atende as restriçoes, pegar o melhor pior possivel
 [] - testes
     [] - implementar mininet
 [] - comparacao com ospf
