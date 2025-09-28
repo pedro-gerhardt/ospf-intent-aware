@@ -1,5 +1,5 @@
 from typing import Dict, List
-from link import Link
+from src.link import Link
 
 class Graph:
     def __init__(self):

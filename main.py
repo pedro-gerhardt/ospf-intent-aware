@@ -1,8 +1,8 @@
 from typing import Dict, List, Tuple, Optional
 import heapq
-from link import Link
-from graph import Graph
-from intent import Intent
+from src.link import Link
+from src.graph import Graph
+from src.intent import Intent
 
 
 def spf(graph: Graph, intent: Intent) -> Optional[List[str]]:
