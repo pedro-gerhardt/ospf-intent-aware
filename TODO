@@ -1,8 +1,8 @@
-[] - codigo:
-    [] - adicionar roteadores
-    [] - adicionar routing table
-    [] - adicionar LSAs
-    [] - adicionar lógica de rede
+[x] - codigo:
+    [x] - adicionar roteadores
+    [x] - adicionar routing table
+    [x] - adicionar LSAs
+    [x] - adicionar lógica de rede
 [] - incrementos de logica
     [] - caso nenhum path atende as restriçoes, pegar o melhor pior possivel
 [] - testes

@@ -1,39 +1,36 @@
-from typing import Dict, List, Tuple, Optional
-import heapq
-from src.link import Link
-from src.graph import Graph
+from src.network import Network
+from src.router import Router
 from src.intent import Intent
 
+import random
 
-def spf(graph: Graph, intent: Intent) -> Optional[List[str]]:
-    pq = [(0, 0, intent.src, [intent.src])]  # (cost, latency, node, path)
-    visited = set()
+if __name__ == "__main__":
+    net = Network()
 
-    while pq:
-        cost, latency, node, path = heapq.heappop(pq)
-        if node == intent.dst:
-            return path
+    names = ["A", "B", "C", "D", "E"]
+    for name in names:
+        net.add_router(Router(name))
 
-        if (node, latency) in visited:
-            continue
-        visited.add((node, latency))
+    for i in range(len(names)):
+        for j in range(i + 1, len(names)):
+            if random.random() < 0.6:   
+                cost = random.randint(1, 10)
+                latency = random.randint(1, 10)
+                bandwidth = random.randint(10, 200)
+                net.connect(names[i], names[j], cost, latency, bandwidth)
+                print(f"Connected {names[i]}-{names[j]} "
+                      f"(cost={cost}, lat={latency}, bw={bandwidth})")
 
-        for link in graph.adj.get(node, []):
-            if intent.min_bandwidth and link.bandwidth < intent.min_bandwidth:
-                continue
-            new_latency = latency + link.latency
-            if intent.max_latency and new_latency > intent.max_latency:
-                continue
-            heapq.heappush(pq, (cost + link.cost, new_latency, link.target, path + [link.target]))
-    return None
+    net.flood_all()
 
+    for r in net.routers.values():
+        for src in names:
+            for dst in names:
+                if src != dst:
+                    intent = Intent(src, dst)
+                    r.run_spf(intent)
 
-g = Graph()
-g.add_link("A", "B", cost=1, latency=5, bandwidth=100)
-g.add_link("B", "C", cost=1, latency=5, bandwidth=50)
-g.add_link("A", "C", cost=10, latency=2, bandwidth=100)
-g.add_link("C", "D", cost=1, latency=1, bandwidth=200)
-
-intent = Intent("A", "D", max_latency=12, min_bandwidth=40)
-path = spf(g, intent)
-print(path)
+    for r in net.routers.values():
+        print(f"\n=== Router {r.name} Routing Table ===")
+        for (src, dst), path in sorted(r.routing_table.items()):
+            print(f" {src}->{dst}: {' -> '.join(path)}")
