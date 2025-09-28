@@ -1,0 +1,9 @@
+[] - codigo:
+    [] - adicionar roteadores
+    [] - adicionar routing table
+    [] - adicionar LSAs
+    [] - adicionar lógica de rede
+[] - testes
+    [] - implementar mininet
+[] - comparacao com ospf
+[] - quem sabe adicionar algo a mais? LSAs diferenciais?
