@@ -53,8 +53,7 @@ class Router:
         
         # Cria um socket UDP para comunicação com outros daemons.
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        # **CORREÇÃO CRÍTICA**: Binda o socket a '0.0.0.0' para escutar em todas as interfaces de rede
-        # do namespace, e não apenas no loopback ('127.0.0.1').
+        # Binda o socket a '0.0.0.0' para escutar em todas as interfaces de rede do namespace
         self.sock.bind(("0.0.0.0", self.port))
 
     def add_link_info(self, peer_name, peer_ip, subnet, cost, latency, bandwidth, peer_port):
@@ -89,8 +88,7 @@ class Router:
         """
         for peer_name, peer_port in self.peer_ports.items():
             if peer_name != from_peer:
-                # **CORREÇÃO CRÍTICA**: Obtém o IP real do vizinho para enviar o pacote,
-                # em vez de usar '127.0.0.1', para que a comunicação cruze os namespaces do Mininet.
+                # Obtém o IP real do vizinho para enviar o pacote para que a comunicação cruze os namespaces do Mininet.
                 if peer_name in self.links:
                     peer_ip = self.links[peer_name]['peer_ip']
                     try:
@@ -183,29 +181,49 @@ class Router:
 
     def compute_path(self, intent: Intent, graph: dict):
         """
-        Calcula o caminho mais curto usando o algoritmo de Dijkstra.
+        Calcula o caminho mais curto (menor custo) que atende às restrições de latência/largura de banda.
         A fila de prioridade armazena (custo, latência, nó, caminho_até_aqui).
         """
-        pq = [(0, 0, intent.src, [intent.src])] # (cost, latency, node, path)
-        visited = set()
+        # (custo total, latência total, nó, caminho)
+        pq = [(0, 0, intent.src, [intent.src])]
+        # Dicionário para rastrear o menor custo total para cada nó.
+        min_costs = {intent.src: 0} 
+        
         while pq:
             cost, latency, node, path = heapq.heappop(pq)
-            if node == intent.dst: return path # Chegou ao destino.
-            if node in visited: continue
-            visited.add(node)
+            
+            # Se já encontramos um caminho para este nó com um custo menor, ignoramos este.
+            # Isso é necessário porque podemos ter adicionado o nó à PQ com um custo maior antes.
+            if cost > min_costs.get(node, float('inf')):
+                continue
+            
+            if node == intent.dst: 
+                return path
             
             # Explora os vizinhos do nó atual.
             for (nbr, metrics) in graph.get(node, []):
                 n_cost, n_lat, n_band = metrics["cost"], metrics["latency"], metrics["bandwidth"]
                 
-                # (Opcional) Verifica restrições da intenção.
-                if (intent.min_bandwidth and n_band < intent.min_bandwidth): continue
+                # A largura de banda mínima deve ser verificada no link
+                if intent.min_bandwidth and n_band < intent.min_bandwidth: 
+                    continue
+                    
+                new_cost = cost + n_cost
                 new_latency = latency + n_lat
-                if (intent.max_latency and new_latency > intent.max_latency): continue
                 
-                # Adiciona o vizinho à fila de prioridade. A fila ordena pelo primeiro elemento (custo).
-                heapq.heappush(pq, (cost + n_cost, new_latency, nbr, path + [nbr]))
-        return None # Retorna None se nenhum caminho for encontrado.
+                # A latência máxima é uma restrição do caminho total
+                if intent.max_latency and new_latency > intent.max_latency: 
+                    continue
+                
+                # Se o novo custo for menor que o custo mínimo conhecido para o vizinho:
+                if new_cost < min_costs.get(nbr, float('inf')):
+                    min_costs[nbr] = new_cost # Atualiza o custo mínimo
+                    # Adiciona o novo caminho à fila de prioridade
+                    heapq.heappush(pq, (new_cost, new_latency, nbr, path + [nbr]))
+            
+        cost, latency, node, path = heapq.heappop(pq)
+        return path
+
 
     def run(self):
         """O loop principal do daemon do roteador."""
