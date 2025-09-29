@@ -4,7 +4,8 @@
     [x] - adicionar LSAs
     [x] - adicionar lógica de rede
 [] - incrementos de logica
-    [] - caso nenhum path atende as restriçoes, pegar o melhor pior possivel
+    [x] - atualizar tabela se custo ficar melhor em nós já visitados
+    [x] - caso nenhum path atende as restriçoes, pegar o melhor pior possivel
 [] - testes
     [X] - implementar mininet
     [] - adicionar intents

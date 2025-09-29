@@ -220,8 +220,9 @@ class Router:
                     min_costs[nbr] = new_cost # Atualiza o custo mínimo
                     # Adiciona o novo caminho à fila de prioridade
                     heapq.heappush(pq, (new_cost, new_latency, nbr, path + [nbr]))
-                    
-        return None
+            
+        cost, latency, node, path = heapq.heappop(pq)
+        return path
 
 
     def run(self):
