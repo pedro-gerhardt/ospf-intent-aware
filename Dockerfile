@@ -21,4 +21,4 @@ ENV SHELL /bin/bash
 WORKDIR /app
 COPY . .
 
-CMD ["python3", "test_mininet.py"]
+CMD ["python3", "run_mininet.py"]
