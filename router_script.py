@@ -53,8 +53,7 @@ class Router:
         
         # Cria um socket UDP para comunicação com outros daemons.
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        # **CORREÇÃO CRÍTICA**: Binda o socket a '0.0.0.0' para escutar em todas as interfaces de rede
-        # do namespace, e não apenas no loopback ('127.0.0.1').
+        # Binda o socket a '0.0.0.0' para escutar em todas as interfaces de rede do namespace
         self.sock.bind(("0.0.0.0", self.port))
 
     def add_link_info(self, peer_name, peer_ip, subnet, cost, latency, bandwidth, peer_port):
@@ -89,8 +88,7 @@ class Router:
         """
         for peer_name, peer_port in self.peer_ports.items():
             if peer_name != from_peer:
-                # **CORREÇÃO CRÍTICA**: Obtém o IP real do vizinho para enviar o pacote,
-                # em vez de usar '127.0.0.1', para que a comunicação cruze os namespaces do Mininet.
+                # Obtém o IP real do vizinho para enviar o pacote para que a comunicação cruze os namespaces do Mininet.
                 if peer_name in self.links:
                     peer_ip = self.links[peer_name]['peer_ip']
                     try:
