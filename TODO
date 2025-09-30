@@ -6,6 +6,7 @@
 [] - incrementos de logica
     [x] - atualizar tabela se custo ficar melhor em nós já visitados
     [x] - caso nenhum path atende as restriçoes, pegar o melhor pior possivel
+    [] - implementar hello continuo para divulgacao de rotas diretas
 [] - testes
     [X] - implementar mininet
     [] - adicionar intents
@@ -13,10 +14,12 @@
 [] - comparacao com ospf
 [] - quem sabe adicionar algo a mais? LSAs diferenciais?
 
-1 - pingall
-2 - traceroute r1 - r5 passando pelo r2
-3 - r1 route -n
-3 - shutdown de um roteador (r2 - eth0) 
-4 - traceroute r1 - r5 passando pelo r3,r4
-4 - r1 route -n
-5 - pingall novamente
+demo
+parte 1 - demonstrar uma rota se adaptando a queda de interface
+    1 - pingall
+    2 - traceroute r1 - r5 passando pelo r2
+    3 - r1 route -n
+    4 - shutdown de um roteador (r2 - eth0) 
+    5 - traceroute r1 - r5 passando pelo r3,r4
+    6 - r1 route -n
+    7 - pingall novamente
