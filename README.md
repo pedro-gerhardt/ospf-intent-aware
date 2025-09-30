@@ -296,6 +296,6 @@ mininet> r1 tail -f /tmp/r1.log
 
 ## Contributors
 
-Gustavo Parcianello Cardona
-Murilo Schuck
-Pedro Gerhardt
+- Gustavo Parcianello Cardona
+- Murilo Schuck
+- Pedro Gerhardt
