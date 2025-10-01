@@ -23,6 +23,10 @@ def start_network():
     # Desempacota a lista para ter variáveis nomeadas para cada roteador, facilitando a leitura.
     r1, r2, r3, r4, r5 = routers
 
+    # Cria PCs conectados a cada roteador
+    hosts = [net.addHost(f"h{i}", ip=f"10.0.{i}.10/24") for i in range(1, 6)]
+    h1, h2, h3, h4, h5 = hosts
+
     # Define a configuração de todos os links da rede.
     # Formato: (roteador_origem, roteador_destino, sub-rede, latência, largura_de_banda_em_Mbps)
     links_config = [
@@ -41,6 +45,42 @@ def start_network():
         dst_ip = subnet.replace('0/24', '2/24')
         # Adiciona o link ao Mininet, configurando os IPs e os parâmetros de qualidade de serviço (QoS).
         net.addLink(src, dst, delay=delay, bw=bw, params1={'ip': src_ip}, params2={'ip': dst_ip})
+
+    # # Links entre PCs e roteadores (cada PC na sua sub-rede /24 com o roteador)
+    # pc_links = [
+    #     (h1, r1, "10.0.1.0/24"),
+    #     (h2, r2, "10.0.2.0/24"),
+    #     (h3, r3, "10.0.3.0/24"),
+    #     (h4, r4, "10.0.4.0/24"),
+    #     (h5, r5, "10.0.5.0/24"),
+    # ]
+    # for host, router, subnet in pc_links:
+    #     host_ip = subnet.replace("0/24", "10/24")  # host .10
+    #     router_ip = subnet.replace("0/24", "1/24")  # roteador .1
+    #     net.addLink(host, router,
+    #                 params1={'ip': host_ip},
+    #                 params2={'ip': router_ip})
+
+
+    # Links entre PCs e roteadores (cada PC na sua sub-rede /24 com o roteador)
+    pc_links = [
+        (h1, r1, "10.0.1.0/24"),
+        (h2, r2, "10.0.2.0/24"),
+        (h3, r3, "10.0.3.0/24"),
+        (h4, r4, "10.0.4.0/24"),
+        (h5, r5, "10.0.5.0/24"),
+    ]
+    for host, router, subnet in pc_links:
+        host_ip = subnet.replace("0/24", "10/24")   # ex: 10.0.1.10
+        router_ip = subnet.replace("0/24", "1/24") # ex: 10.0.1.1
+        net.addLink(host, router,
+                    params1={'ip': host_ip},
+                    params2={'ip': router_ip})
+
+    # Configura rotas default nos PCs
+    for i, h in enumerate(hosts, start=1):
+        gw = f"10.0.{i}.1"
+        h.cmd(f"ip route add default via {gw}")
 
     # Inicia a rede. O Mininet constrói a topologia e configura os IPs nas interfaces.
     net.start()
@@ -63,6 +103,9 @@ def start_network():
             if intf.link:
                 # Encontra o nó vizinho (peer) na outra ponta do link.
                 peer_node = intf.link.intf1.node if intf.link.intf2.node == r else intf.link.intf2.node
+                # só processa vizinhos que são roteadores (nome começa com "r")
+                if not peer_node.name.startswith("r"):
+                    continue
                 # Encontra a interface do vizinho neste mesmo link.
                 peer_intf = intf.link.intf1 if intf.link.intf2.node == r else intf.link.intf2
                 
@@ -73,8 +116,8 @@ def start_network():
                 
                 # Obtém os parâmetros (delay, bw) do link.
                 link_params = intf.link.intf1.params
-                delay_ms = int(link_params['delay'].replace('ms', ''))
-                bw_mbps = link_params['bw']
+                delay_ms = int(link_params.get('delay', '0ms').replace('ms', ''))
+                bw_mbps = link_params.get('bw', 1000)
                 # Calcula a porta de escuta do daemon do vizinho.
                 peer_port = PORT_BASE + int(peer_node.name[1:])
                 # O custo é usado pelo algoritmo de roteamento (ex: Dijkstra). Aqui, é fixo.
