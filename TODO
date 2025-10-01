@@ -13,13 +13,24 @@
     [] - adicionar dois PCs como hosts novos na topologia 
 [] - comparacao com ospf
 [] - quem sabe adicionar algo a mais? LSAs diferenciais?
+[] - gravar demos
 
 demo
 parte 1 - demonstrar uma rota se adaptando a queda de interface
     1 - pingall
     2 - traceroute r1 - r5 passando pelo r2
     3 - r1 route -n
-    4 - shutdown de um roteador (r2 - eth0) 
+    4 - derrubar link r2-r5
     5 - traceroute r1 - r5 passando pelo r3,r4
     6 - r1 route -n
     7 - pingall novamente
+
+parte 2 - demonstrar intent em ação e melhor rota caso nenhuma satisfaça constraints
+    1 - pingall
+    2 - traceroute r1 - r5 passando pelo r2
+    3 - setar link r2-r5 com latencia alta
+    4 - setar intent de r1 a r5 com max latencia baixa
+    5 - pingall
+    6 - traceroute r1 - r5 passando pelo r3 e r4
+    7 - derrubar link r1-r3
+    6 - traceroute r1 - r5 passando pelo r2
