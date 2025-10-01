@@ -1,5 +1,3 @@
-Com base nos arquivos do projeto, aqui está uma versão atualizada do arquivo `README.md` que reflete as mudanças mais recentes, como a topologia de rede atualizada, a adição de métricas de avaliação e planos de demonstração detalhados.
-
 -----
 
 # OSPF Intent-Aware Routing
