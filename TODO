@@ -6,7 +6,7 @@
 [] - incrementos de logica
     [x] - atualizar tabela se custo ficar melhor em nós já visitados
     [x] - caso nenhum path atende as restriçoes, pegar o melhor pior possivel
-    [] - implementar hello continuo para divulgacao de rotas diretas
+    [x] - implementar hello continuo para divulgacao de rotas diretas
 [] - testes
     [X] - implementar mininet
     [] - adicionar intents
