@@ -9,6 +9,7 @@ RUN apt-get update && \
     ca-certificates \
     sudo \
     lsb-release \
+    traceroute \
     iputils-ping && \
     rm -rf /var/lib/apt/lists/*
 
