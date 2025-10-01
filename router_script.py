@@ -56,6 +56,8 @@ class Router:
 
     def send_message(self, msg_type, payload, peer_ip, peer_port, peer_name=None):
         msg = json.dumps({"type": msg_type, "payload": payload}).encode()
+            # Registra o envio de um pacote, seu tipo, tamanho e destino.
+        print(f"[{self.name}] METRIC_PACKET_SENT type={msg_type} size={len(msg)} to={peer_ip}:{peer_port}")
         try:
             self.sock.sendto(msg, (peer_ip, peer_port))
         except OSError as e:
@@ -163,6 +165,14 @@ class Router:
                         subprocess.run(cmd, shell=True, check=True, stderr=subprocess.PIPE, stdout=subprocess.PIPE)
                     except subprocess.CalledProcessError as e:
                         print(f"[{self.name}] Erro ao instalar rota para {dest_subnet}: {e.stderr.decode().strip()}")
+        
+        try:
+            result = subprocess.run("ip route | wc -l", shell=True, check=True, capture_output=True, text=True)
+            table_size = int(result.stdout.strip())
+            print(f"[{self.name}] METRIC_TABLE_SIZE size={table_size}")
+        except subprocess.CalledProcessError as e:
+            print(f"[{self.name}] Erro ao obter tamanho da tabela de roteamento: {e.stderr.strip()}")
+
 
     def compute_path(self, intent: Intent, graph: dict):
         pq = [(0, 0, intent.src, [intent.src])]

@@ -10,6 +10,7 @@ RUN apt-get update && \
     sudo \
     lsb-release \
     traceroute \
+    iperf \
     iputils-ping && \
     rm -rf /var/lib/apt/lists/*
 

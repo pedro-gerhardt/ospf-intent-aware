@@ -4,6 +4,7 @@ from mininet.node import Controller, OVSBridge
 from mininet.link import TCLink
 from mininet.cli import CLI
 from mininet.log import setLogLevel
+import time
 
 ROUTER_SCRIPT = "router_script.py"
 PORT_BASE = 10000
@@ -40,6 +41,9 @@ def start_network():
     net.addLink(pc2, r5, params1={'ip': '172.16.5.10/24'}, params2={'ip': '172.16.5.1/24'})
 
     net.start()
+
+    start_time = time.time()
+    print(f"[{start_time}] METRIC_NETWORK_START_TIME")
 
     print("*** Configurando rota padrão nos PCs")
     pc1.cmd('ip route add default via 172.16.1.1')
@@ -94,6 +98,11 @@ def start_network():
         p = r.popen(full_cmd, shell=True)
         procs.append(p)
 
+    # --- Métricas ---
+    convergence_metric(net, start_time)
+    qos_metric(pc1, pc2)
+    # ----------------
+
     print("\n*** Rede pronta. Daemons estão convergindo.")
     print("*** Verifique /tmp/rX.log para a saída dos daemons.")
     print("*** Use a CLI. Tente 'pc1 ping pc2' após ~15 segundos.")
@@ -104,6 +113,79 @@ def start_network():
         p.terminate()
 
     net.stop()
+
+def convergence_metric(net, start_time):
+    print("\n*** Aguardando conectividade total da rede (pingall com fail-fast)...")
+
+    for _ in range(120):
+        if ping_all_fail_fast(net):
+            end_time = time.time()
+            convergence_time = end_time - start_time
+            formatted_result = (
+            f"\n"
+            f"    Tipo: pingall fail-fast\n"
+            f"    Tempo de Convergência: {convergence_time:.4f}sec\n"
+            )
+            print(f"--- METRIC_CONVERGENCE_START ---\n{formatted_result}\n--- METRIC_CONVERGENCE_END ---")
+            break
+        time.sleep(0.5) 
+    else:
+        print("*** AVISO: Timeout! Conectividade total (pingall) não foi estabelecida.")
+
+def ping_all_fail_fast(net):
+    """
+    Executa um 'pingall', mas para e retorna False na primeira falha.
+    Isso evita esperar o timeout de todos os outros pings.
+    Retorna True somente se todos os pings forem bem-sucedidos.
+    """
+    for source in net.hosts:
+        for dest in net.hosts:
+            if source == dest:
+                continue
+
+            # Usa um ping com timeout curto para a verificação
+            result = source.cmd(f'ping -c 1 -W 1 {dest.IP()}')
+
+            # Se o ping falhar, informa qual foi e retorna False imediatamente
+            if '1 received' not in result:
+                return False
+
+    # Se todos os pings do loop foram bem-sucedidos
+    print("*** Conectividade total confirmada!")
+    return True
+
+def qos_metric(pc1, pc2):
+    print("\n*** Realizando teste de desempenho (QoS) com iperf...")
+
+    # Inicia o servidor iperf em pc2 em background
+    pc2.cmd('iperf -s &')
+
+    # Aguarda um instante para o servidor iniciar
+    time.sleep(1)
+
+    # Executa o cliente iperf em pc1 e captura a saída
+    iperf_result = pc1.cmd(f'iperf -c {pc2.IP()} -y C -t 10')
+
+    parts = iperf_result.strip().split(',')
+    # Extrai as métricas do formato CSV do iperf para TCP
+    interval = parts[6]
+    bytes_transferred = int(parts[7])
+    bandwidth_bps = float(parts[8])
+
+    megabits_divisor = 1_000_000
+    mebibytes_divisor = 1024 * 1024
+
+    # Cria a string formatada para o log (sem jitter/loss)
+    formatted_result = (
+        f"\n"
+        f"    Duração: {interval}sec\n"
+        f"    Vazão: {bandwidth_bps / megabits_divisor:.2f} Mbits/sec\n"
+        f"    Dados Transferidos: {bytes_transferred / mebibytes_divisor:.2f} MBytes\n"
+    )
+    print(f"--- METRIC_QOS_START ---\n{formatted_result}\n--- METRIC_QOS_END ---")
+    
+    # Para o servidor iperf em pc2
+    pc2.cmd('kill %iperf')
 
 if __name__ == "__main__":
     setLogLevel("info")
