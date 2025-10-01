@@ -8,12 +8,15 @@
     [x] - caso nenhum path atende as restriçoes, pegar o melhor pior possivel
     [x] - implementar hello continuo para divulgacao de rotas diretas
 [] - testes
-    [X] - implementar mininet
+    [x] - implementar mininet
     [] - adicionar intents
-    [] - adicionar dois PCs como hosts novos na topologia 
-[] - comparacao com ospf
-[] - quem sabe adicionar algo a mais? LSAs diferenciais?
-[] - gravar demos
+    [x] - adicionar dois PCs como hosts novos na topologia 
+[x] - comparacao com ospf -> Gustavo Parcianello
+    [] - nice to have - métrica reconvergência
+[] - entender diferença de tempo de convergência -> Murilo Schuck
+[] - quem sabe adicionar algo a mais? LSAs diferenciais? não.
+[] - gravar demos -> Pedro Gerhardt
+[x] - atualizar readme -> Gustavo Parcianello
 
 demo
 parte 1 - demonstrar uma rota se adaptando a queda de interface
