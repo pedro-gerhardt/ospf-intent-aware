@@ -11,6 +11,7 @@ RUN apt-get update && \
     lsb-release \
     traceroute \
     iperf \
+    tcpdump \
     iputils-ping && \
     rm -rf /var/lib/apt/lists/*
 

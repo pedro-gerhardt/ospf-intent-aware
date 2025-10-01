@@ -55,7 +55,7 @@ def start_network():
 
     procs = []
     for r in routers:
-        cmd_args = [f"python3 {ROUTER_SCRIPT} --name {r.name}"]
+        cmd_args = [f"python3 -u {ROUTER_SCRIPT} --name {r.name}"]
 
         for intf in r.intfList():
             if intf.link:
@@ -101,6 +101,9 @@ def start_network():
     # --- Métricas ---
     convergence_metric(net, start_time)
     qos_metric(pc1, pc2)
+    routing_table_metric(routers)
+    path_analysis_metric(pc1, pc2)
+    protocol_overhead_metric(routers, start_time)
     # ----------------
 
     print("\n*** Rede pronta. Daemons estão convergindo.")
@@ -117,7 +120,7 @@ def start_network():
 def convergence_metric(net, start_time):
     print("\n*** Aguardando conectividade total da rede (pingall com fail-fast)...")
 
-    for _ in range(120):
+    for _ in range(180):
         if ping_all_fail_fast(net):
             end_time = time.time()
             convergence_time = end_time - start_time
@@ -128,7 +131,7 @@ def convergence_metric(net, start_time):
             )
             print(f"--- METRIC_CONVERGENCE_START ---\n{formatted_result}\n--- METRIC_CONVERGENCE_END ---")
             break
-        time.sleep(0.5) 
+        time.sleep(0.5)
     else:
         print("*** AVISO: Timeout! Conectividade total (pingall) não foi estabelecida.")
 
@@ -186,6 +189,74 @@ def qos_metric(pc1, pc2):
     
     # Para o servidor iperf em pc2
     pc2.cmd('kill %iperf')
+
+def routing_table_metric(routers):
+    """
+    Mede o tamanho da tabela de roteamento de cada roteador e exibe um resumo.
+    """
+    print("\n*** Coletando métricas de tabela de roteamento...")
+
+    total_routes = 0
+    routing_table_details = ""
+    for r in routers:
+        # O comando 'ip route' lista as rotas, e 'wc -l' conta as linhas.
+        route_count_str = r.cmd('ip route | wc -l').strip()
+        route_count = int(route_count_str)
+        total_routes += route_count
+        routing_table_details += f"    - Roteador {r.name}: {route_count} rotas\n"
+
+    # Cria a string formatada para o log
+    formatted_result = (
+        f"\n"
+        f"{routing_table_details}"
+        f"    - Total na rede: {total_routes} rotas\n"
+    )
+    print(f"--- METRIC_ROUTING_TABLE_START ---\n{formatted_result}\n--- METRIC_ROUTING_TABLE_END ---")
+
+def path_analysis_metric(pc1, pc2):
+    """
+    Executa um traceroute para visualizar o caminho entre dois hosts.
+    """
+    print("\n*** Analisando a rota de pc1 para pc2 com traceroute...")
+    
+    # O '-n' evita a resolução de nomes, tornando o comando mais rápido.
+    traceroute_output = pc1.cmd(f'traceroute -n {pc2.IP()}')
+    
+    formatted_result = f"\n{traceroute_output}\n"
+    
+    print(f"--- METRIC_PATH_ANALYSIS_START ---\n{formatted_result}\n--- METRIC_PATH_ANALYSIS_END ---")
+
+def protocol_overhead_metric(routers, start_time):
+    """
+    Analisa os logs dos roteadores para resumir o overhead do protocolo.
+    """
+    print("\n*** Analisando o overhead do protocolo (pacotes de controle)...")
+    
+    lsa_packets = 0
+    hello_packets = 0
+
+    for r in routers:
+        log_file = f"/tmp/{r.name}.log"
+        try:
+            with open(log_file, 'r') as f:
+                for line in f:
+                    if "Gerando LSA" in line:
+                        lsa_packets += 1
+                    elif "Gerando HELLO" in line:
+                        hello_packets += 1
+        except FileNotFoundError:
+            print(f"    - AVISO: Arquivo de log {log_file} não encontrado.")
+
+    end_time = time.time()
+    time_spent = end_time - start_time
+
+    formatted_result = (
+        f"\n"
+        f"      Tempo total: {time_spent:.2f}sec\n"
+        f"      Total gerado de LSA: {lsa_packets}\n"
+        f"      Total gerado de HELLO: {hello_packets}\n"
+    )
+    print(f"--- METRIC_PROTOCOL_OVERHEAD_START ---\n{formatted_result}\n--- METRIC_PROTOCOL_OVERHEAD_END ---")
 
 if __name__ == "__main__":
     setLogLevel("info")

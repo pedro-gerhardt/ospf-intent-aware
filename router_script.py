@@ -72,6 +72,7 @@ class Router:
         for peer_name, peer_port in self.peer_ports.items():
             if peer_name in self.links and self.links[peer_name]["up"]:
                 peer_ip = self.links[peer_name]["peer_ip"]
+                print(f"[{self.name}] Gerando HELLO para {peer_name} ({peer_ip}:{peer_port})")
                 self.send_message("HELLO", {"from": self.name}, peer_ip, peer_port, peer_name=peer_name)
 
     def originate_lsa(self):
