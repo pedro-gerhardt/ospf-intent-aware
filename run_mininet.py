@@ -56,7 +56,6 @@ def start_network():
         for intf in r.intfList():
             if intf.link:
                 peer_node = intf.link.intf1.node if intf.link.intf2.node == r else intf.link.intf2.node
-
                 # Se o vizinho for um roteador, adiciona como um peer OSPF
                 if peer_node.name.startswith("r"):
                     # Encontra a interface do vizinho neste mesmo link.
