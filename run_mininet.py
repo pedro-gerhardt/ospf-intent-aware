@@ -5,6 +5,7 @@ from mininet.link import TCLink
 from mininet.cli import CLI
 from mininet.log import setLogLevel
 import time
+import re
 
 ROUTER_SCRIPT = "router_script.py"
 PORT_BASE = 10000
@@ -43,7 +44,6 @@ def start_network():
     net.start()
 
     start_time = time.time()
-    print(f"[{start_time}] METRIC_NETWORK_START_TIME")
 
     print("*** Configurando rota padrão nos PCs")
     pc1.cmd('ip route add default via 172.16.1.1')
@@ -104,6 +104,7 @@ def start_network():
     routing_table_metric(routers)
     path_analysis_metric(pc1, pc2)
     protocol_overhead_metric(routers, start_time)
+    reconvergence_metric(net, pc1, pc2)
     # ----------------
 
     print("\n*** Rede pronta. Daemons estão convergindo.")
@@ -121,7 +122,7 @@ def convergence_metric(net, start_time):
     print("\n*** Aguardando conectividade total da rede (pingall com fail-fast)...")
 
     for _ in range(180):
-        if ping_all_fail_fast(net):
+        if _ping_all_fail_fast(net):
             end_time = time.time()
             convergence_time = end_time - start_time
             formatted_result = (
@@ -135,7 +136,7 @@ def convergence_metric(net, start_time):
     else:
         print("*** AVISO: Timeout! Conectividade total (pingall) não foi estabelecida.")
 
-def ping_all_fail_fast(net):
+def _ping_all_fail_fast(net):
     """
     Executa um 'pingall', mas para e retorna False na primeira falha.
     Isso evita esperar o timeout de todos os outros pings.
@@ -182,8 +183,8 @@ def qos_metric(pc1, pc2):
     formatted_result = (
         f"\n"
         f"    Duração: {interval}sec\n"
-        f"    Vazão: {bandwidth_bps / megabits_divisor:.2f} Mbits/sec\n"
-        f"    Dados Transferidos: {bytes_transferred / mebibytes_divisor:.2f} MBytes\n"
+        f"    Vazão: {bandwidth_bps / megabits_divisor:.2f}Mbits/sec\n"
+        f"    Dados Transferidos: {bytes_transferred / mebibytes_divisor:.2f}MBytes\n"
     )
     print(f"--- METRIC_QOS_START ---\n{formatted_result}\n--- METRIC_QOS_END ---")
     
@@ -257,6 +258,96 @@ def protocol_overhead_metric(routers, start_time):
         f"      Total gerado de HELLO: {hello_packets}\n"
     )
     print(f"--- METRIC_PROTOCOL_OVERHEAD_START ---\n{formatted_result}\n--- METRIC_PROTOCOL_OVERHEAD_END ---")
+
+
+def reconvergence_metric(net, pc1, pc2):
+    """
+    Mede o tempo de reconvergência da rede após uma falha de link,
+    identificando dinamicamente o link a ser derrubado.
+    """
+    print("\n*** Medindo o tempo de reconvergência dinamicamente...")
+    print("    - Verificando a rota atual com traceroute...")
+    traceroute_output = pc1.cmd(f'traceroute -n {pc2.IP()}')
+    path_routers = _get_path_routers(net, traceroute_output)
+    
+    if len(path_routers) < 2:
+        print("    - AVISO: Não foi possível identificar um link entre roteadores no caminho. Abortando.")
+        return
+
+    # Derruba o link entre os dois últimos roteadores no caminho
+    r_a, r_b = path_routers[-2], path_routers[-1]
+    
+    print(f"    - Rota identificada: {' -> '.join([r.name for r in path_routers])}")
+    print(f"    - Derrubando o link dinâmico ({r_a.name}-{r_b.name})...")
+
+    net.configLinkStatus(r_a.name, r_b.name, 'down')
+    start_time = time.time()
+    print(f"    - Link {r_a.name}-{r_b.name} derrubado. Iniciando contagem do tempo.")
+
+    for _ in range(120): # Timeout de ~60 segundos
+        result = pc1.cmd(f'ping -c 1 -W 1 {pc2.IP()}')
+        if '1 received' in result:
+            end_time = time.time()
+            reconvergence_time = end_time - start_time
+            print("    - Verificando a rota atual com traceroute...")
+            traceroute_output = pc1.cmd(f'traceroute -n {pc2.IP()}')
+            path_routers = _get_path_routers(net, traceroute_output)
+            formatted_result = (
+                f"\n"
+                f"    Link derrubado: {r_a.name}-{r_b.name}\n"
+                f"    Tempo para reconvergir: {reconvergence_time:.4f}sec\n"
+                f"    Nova rota identificada: {' -> '.join([r.name for r in path_routers])}\n"
+            )
+            print(f"--- METRIC_RECONVERGENCE_START ---\n{formatted_result}\n--- METRIC_RECONVERGENCE_END ---")
+            
+            net.configLinkStatus(r_a.name, r_b.name, 'up')
+            print(f"    - Link {r_a.name}-{r_b.name} restaurado.")
+            return
+        time.sleep(0.5)
+
+    print(f"    - AVISO: Timeout! Ping não foi restabelecido após a falha do link {r_a.name}-{r_b.name}.")
+    net.configLinkStatus(r_a.name, r_b.name, 'up')
+    print(f"    - Link {r_a.name}-{r_b.name} restaurado.")
+
+
+def _get_path_routers(net, traceroute_output):
+    """
+    Analisa a saída do traceroute para encontrar os nós de roteadores no caminho.
+    """
+    # Regex para encontrar endereços IP na saída do traceroute
+    ip_regex = re.compile(r'\s*(\d+\.\d+\.\d+\.\d+)\s*')
+    lines = traceroute_output.strip().split('\n')
+    
+    router_ips = []
+    # Os saltos do caminho real começam a partir da segunda linha
+    for line in lines[1:]:
+        match = ip_regex.search(line)
+        if match:
+            # Garante que não estamos adicionando o IP do próprio PC de destino
+            if match.group(1) != net.get('pc2').IP():
+                router_ips.append(match.group(1))
+
+    path_routers = []
+    seen_nodes = set()
+    
+    # Encontra o nó para cada IP na saída do traceroute
+    for ip in router_ips:
+        node_found = None
+        # Itera sobre todos os hosts para encontrar a qual roteador o IP pertence
+        for node in net.hosts:
+            if node.name.startswith('r'): # Garante que estamos olhando apenas para roteadores
+                for intf in node.intfList():
+                    if intf.IP() == ip:
+                        node_found = node
+                        break
+            if node_found:
+                break
+        
+        if node_found and node_found not in seen_nodes:
+            path_routers.append(node_found)
+            seen_nodes.add(node_found)
+            
+    return path_routers
 
 if __name__ == "__main__":
     setLogLevel("info")
