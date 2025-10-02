@@ -2,8 +2,6 @@
 
 # OSPF Intent-Aware Routing
 
-\<a name="português"\>\</a\>
-
 ## Português
 
 ### Visão Geral
