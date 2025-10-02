@@ -4,28 +4,43 @@ from mininet.node import Controller, OVSBridge
 from mininet.link import TCLink
 from mininet.cli import CLI
 from mininet.log import setLogLevel
-import time
-import re
+import socket, json, time, re, os
+
+
 
 ROUTER_SCRIPT = "router_script.py"
 PORT_BASE = 10000
+NUM_ROUTERS = 5 # Adicionado para facilitar a limpeza dos logs
+
+def cleanup_logs():
+    """Remove arquivos de log antigos para garantir uma execução limpa."""
+    print("*** Removendo arquivos de log antigos...")
+    for i in range(1, NUM_ROUTERS + 1):
+        log_file = f"/tmp/r{i}.log"
+        try:
+            os.remove(log_file)
+        except FileNotFoundError:
+            pass # É normal o arquivo não existir na primeira execução
+
 
 def start_network():
     """
     Cria e configura a topologia de rede no Mininet.
     """
+    cleanup_logs()
+
     net = Mininet(controller=Controller, link=TCLink, switch=OVSBridge)
 
-    routers = [net.addHost(f"r{i}", ip=None) for i in range(1, 6)]
+    routers = [net.addHost(f"r{i}", ip=None) for i in range(1, NUM_ROUTERS+1)]
     r1, r2, r3, r4, r5 = routers
 
     print("*** Adicionando PCs à topologia")
     pc1 = net.addHost('pc1', ip='172.16.1.10/24')
-    pc2 = net.addHost('pc2', ip='172.16.5.10/24')
+    pc5 = net.addHost('pc5', ip='172.16.5.10/24')
 
     links_config = [
-        (r1, r2, "10.0.12.0/24", "5ms", 100),
-        (r1, r3, "10.0.13.0/24", "2ms", 10),
+        (r1, r2, "10.0.12.0/24", "5ms", 20),
+        (r1, r3, "10.0.13.0/24", "2ms", 40),
         (r2, r3, "10.0.23.0/24", "5ms", 50),
         (r2, r5, "10.0.25.0/24", "7ms", 80),
         (r3, r4, "10.0.34.0/24", "1ms", 200),
@@ -39,7 +54,7 @@ def start_network():
 
     print("*** Criando links entre PCs e roteadores")
     net.addLink(pc1, r1, params1={'ip': '172.16.1.10/24'}, params2={'ip': '172.16.1.1/24'})
-    net.addLink(pc2, r5, params1={'ip': '172.16.5.10/24'}, params2={'ip': '172.16.5.1/24'})
+    net.addLink(pc5, r5, params1={'ip': '172.16.5.10/24'}, params2={'ip': '172.16.5.1/24'})
 
     net.start()
 
@@ -47,7 +62,7 @@ def start_network():
 
     print("*** Configurando rota padrão nos PCs")
     pc1.cmd('ip route add default via 172.16.1.1')
-    pc2.cmd('ip route add default via 172.16.5.1')
+    pc5.cmd('ip route add default via 172.16.5.1')
 
     print("*** Habilitando encaminhamento IP em todos os roteadores")
     for r in routers:
@@ -100,16 +115,17 @@ def start_network():
 
     # --- Métricas ---
     convergence_metric(net, start_time)
-    qos_metric(pc1, pc2)
+    qos_metric(pc1, pc5)
     routing_table_metric(routers)
-    path_analysis_metric(pc1, pc2)
+    path_analysis_metric(pc1, pc5)
     protocol_overhead_metric(routers, start_time)
-    reconvergence_metric(net, pc1, pc2)
+    intent_test(pc1, pc5, net)
+    reconvergence_metric(net, pc1, pc5)
     # ----------------
 
     print("\n*** Rede pronta. Daemons estão convergindo.")
     print("*** Verifique /tmp/rX.log para a saída dos daemons.")
-    print("*** Use a CLI. Tente 'pc1 ping pc2' após ~15 segundos.")
+    print("*** Use a CLI. Tente 'pc1 ping pc5' após ~15 segundos.")
     CLI(net)
 
     print("*** Parando os daemons de roteamento")
@@ -158,17 +174,17 @@ def _ping_all_fail_fast(net):
     print("*** Conectividade total confirmada!")
     return True
 
-def qos_metric(pc1, pc2):
+def qos_metric(pc1, pc5):
     print("\n*** Realizando teste de desempenho (QoS) com iperf...")
 
-    # Inicia o servidor iperf em pc2 em background
-    pc2.cmd('iperf -s &')
+    # Inicia o servidor iperf em pc5 em background
+    pc5.cmd('iperf -s &')
 
     # Aguarda um instante para o servidor iniciar
     time.sleep(1)
 
     # Executa o cliente iperf em pc1 e captura a saída
-    iperf_result = pc1.cmd(f'iperf -c {pc2.IP()} -y C -t 10')
+    iperf_result = pc1.cmd(f'iperf -c {pc5.IP()} -y C -t 10')
 
     parts = iperf_result.strip().split(',')
     # Extrai as métricas do formato CSV do iperf para TCP
@@ -188,8 +204,8 @@ def qos_metric(pc1, pc2):
     )
     print(f"--- METRIC_QOS_START ---\n{formatted_result}\n--- METRIC_QOS_END ---")
     
-    # Para o servidor iperf em pc2
-    pc2.cmd('kill %iperf')
+    # Para o servidor iperf em pc5
+    pc5.cmd('kill %iperf')
 
 def routing_table_metric(routers):
     """
@@ -214,14 +230,14 @@ def routing_table_metric(routers):
     )
     print(f"--- METRIC_ROUTING_TABLE_START ---\n{formatted_result}\n--- METRIC_ROUTING_TABLE_END ---")
 
-def path_analysis_metric(pc1, pc2):
+def path_analysis_metric(pc1, pc5):
     """
     Executa um traceroute para visualizar o caminho entre dois hosts.
     """
-    print("\n*** Analisando a rota de pc1 para pc2 com traceroute...")
+    print("\n*** Analisando a rota de pc1 para pc5 com traceroute...")
     
     # O '-n' evita a resolução de nomes, tornando o comando mais rápido.
-    traceroute_output = pc1.cmd(f'traceroute -n {pc2.IP()}')
+    traceroute_output = pc1.cmd(f'traceroute -n {pc5.IP()}')
     
     formatted_result = f"\n{traceroute_output}\n"
     
@@ -260,15 +276,15 @@ def protocol_overhead_metric(routers, start_time):
     print(f"--- METRIC_PROTOCOL_OVERHEAD_START ---\n{formatted_result}\n--- METRIC_PROTOCOL_OVERHEAD_END ---")
 
 
-def reconvergence_metric(net, pc1, pc2):
+def reconvergence_metric(net, pc1, pc5):
     """
     Mede o tempo de reconvergência da rede após uma falha de link,
     identificando dinamicamente o link a ser derrubado.
     """
     print("\n*** Medindo o tempo de reconvergência dinamicamente...")
     print("    - Verificando a rota atual com traceroute...")
-    traceroute_output = pc1.cmd(f'traceroute -n {pc2.IP()}')
-    path_routers = _get_path_routers(net, traceroute_output)
+    traceroute_output = pc1.cmd(f'traceroute -n {pc5.IP()}')
+    path_routers = get_path_routers(net, traceroute_output)
     
     if len(path_routers) < 2:
         print("    - AVISO: Não foi possível identificar um link entre roteadores no caminho. Abortando.")
@@ -285,13 +301,13 @@ def reconvergence_metric(net, pc1, pc2):
     print(f"    - Link {r_a.name}-{r_b.name} derrubado. Iniciando contagem do tempo.")
 
     for _ in range(120): # Timeout de ~60 segundos
-        result = pc1.cmd(f'ping -c 1 -W 1 {pc2.IP()}')
+        result = pc1.cmd(f'ping -c 1 -W 1 {pc5.IP()}')
         if '1 received' in result:
             end_time = time.time()
             reconvergence_time = end_time - start_time
             print("    - Verificando a rota atual com traceroute...")
-            traceroute_output = pc1.cmd(f'traceroute -n {pc2.IP()}')
-            path_routers = _get_path_routers(net, traceroute_output)
+            traceroute_output = pc1.cmd(f'traceroute -n {pc5.IP()}')
+            path_routers = get_path_routers(net, traceroute_output)
             formatted_result = (
                 f"\n"
                 f"    Link derrubado: {r_a.name}-{r_b.name}\n"
@@ -308,9 +324,7 @@ def reconvergence_metric(net, pc1, pc2):
     print(f"    - AVISO: Timeout! Ping não foi restabelecido após a falha do link {r_a.name}-{r_b.name}.")
     net.configLinkStatus(r_a.name, r_b.name, 'up')
     print(f"    - Link {r_a.name}-{r_b.name} restaurado.")
-
-
-def _get_path_routers(net, traceroute_output):
+def get_path_routers(net, traceroute_output):
     """
     Analisa a saída do traceroute para encontrar os nós de roteadores no caminho.
     """
@@ -324,7 +338,7 @@ def _get_path_routers(net, traceroute_output):
         match = ip_regex.search(line)
         if match:
             # Garante que não estamos adicionando o IP do próprio PC de destino
-            if match.group(1) != net.get('pc2').IP():
+            if match.group(1) != net.get('pc5').IP():
                 router_ips.append(match.group(1))
 
     path_routers = []
@@ -348,6 +362,39 @@ def _get_path_routers(net, traceroute_output):
             seen_nodes.add(node_found)
             
     return path_routers
+
+def send_intent(router, src, dst, max_latency=None, min_bandwidth=None):
+    msg = {"type": "INTENT", "src": src, "dst": dst,
+           "max_latency": max_latency, "min_bandwidth": min_bandwidth}
+    payload = json.dumps(msg).replace('"', '\\"')
+    router.cmd(f'echo "{payload}" | nc -u -w1 127.0.0.1 {20000 + int(router.name[1:])}')
+    print(f"*** Intent enviada para {router.name}: {msg}")
+
+def intent_test(pc1, pc5, net):
+    print(f"--- TEST_INTENT_AWARE_ROUTING_START ---")
+    print("\n*** Iniciando teste de Intent Aware Routing")
+
+    # 1. Caminho normal
+    print(">>> Cenário 1: Sem restrição (rota natural)")
+    print(pc1.cmd(f"traceroute -w 5 -n {pc5.IP()}"))
+
+    # 2. Inserir intent max_latency=50ms
+    print(">>> Cenário 2: Com restrição de latência (max_latency=50ms)")
+    r1 = net.get("r1")
+    send_intent(r1, "pc1", "pc5", min_bandwidth=30)
+    time.sleep(15)  # tempo para convergência
+    print(pc1.cmd(f"traceroute -w 5 -n {pc5.IP()}"))
+
+    # 3. Derrubar r1–r3
+    print(">>> Cenário 3: Derrubando link r1–r3 (intent não satisfaz, volta pela rota antiga)")
+    net.configLinkStatus("r1", "r3", "down")
+    time.sleep(15)
+    print(pc1.cmd(f"traceroute -w 5 -n {pc5.IP()}"))
+    net.configLinkStatus("r1", "r3", "up")
+    print(f"Link r1-r3 restaurado.")
+    print(f"--- TEST_INTENT_AWARE_ROUTING_END ---")
+    time.sleep(15)
+
 
 if __name__ == "__main__":
     setLogLevel("info")

@@ -7,15 +7,15 @@
     [x] - atualizar tabela se custo ficar melhor em nós já visitados
     [x] - caso nenhum path atende as restriçoes, pegar o melhor pior possivel
     [x] - implementar hello continuo para divulgacao de rotas diretas
-[] - testes
+[x] - testes
     [x] - implementar mininet
-    [] - adicionar intents
+    [x] - adicionar intents
     [x] - adicionar dois PCs como hosts novos na topologia 
 [x] - comparacao com ospf -> Gustavo Parcianello
-    [] - nice to have - métrica reconvergência
+    [x] - nice to have - métrica reconvergência
 [] - entender diferença de tempo de convergência -> Murilo Schuck
 [] - quem sabe adicionar algo a mais? LSAs diferenciais? não.
-[] - gravar demos -> Pedro Gerhardt
+[x] - gravar demos -> Pedro Gerhardt
 [x] - atualizar readme -> Gustavo Parcianello
 
 demo

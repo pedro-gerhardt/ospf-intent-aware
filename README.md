@@ -67,10 +67,10 @@ The implementation consists of two main components:
     mininet> pingall
 
     # Test connectivity between PCs
-    mininet> pc1 ping pc2
+    mininet> pc1 ping pc5
 
     # Trace route between PCs
-    mininet> pc1 traceroute pc2
+    mininet> pc1 traceroute pc5
 
     # View routing table on a router
     mininet> r1 route -n
@@ -82,7 +82,7 @@ The implementation consists of two main components:
     mininet> link r2 r5 down
 
     # Wait a few seconds and check the new route
-    mininet> pc1 traceroute pc2
+    mininet> pc1 traceroute pc5
     ```
 
 4.  **Exit the simulation**:
@@ -93,13 +93,13 @@ The implementation consists of two main components:
 
 ### Network Topology
 
-The topology consists of 5 routers and 2 PCs, with `pc1` connected to `r1` and `pc2` connected to `r5`.
+The topology consists of 5 routers and 2 PCs, with `pc1` connected to `r1` and `pc5` connected to `r5`.
 
 ```
     pc1 --- r1 -------- r2
             |  \        |  \
             |   \       |   \
-            r3   \      |    r5 --- pc2
+            r3   \      |    r5 --- pc5
             |     \     |   /
             |      \    |  /
             r4 ---------+/
@@ -119,9 +119,9 @@ The topology consists of 5 routers and 2 PCs, with `pc1` connected to `r1` and `
 The `run_mininet.py` script automatically collects and displays key performance metrics to evaluate the routing protocol. These metrics are essential for comparison and analysis.
 
   - **Convergence Time**: Measures the time until full network connectivity is achieved after startup.
-  - **QoS (iperf)**: Tests throughput and total data transferred between `pc1` and `pc2`.
+  - **QoS (iperf)**: Tests throughput and total data transferred between `pc1` and `pc5`.
   - **Routing Table Size**: Reports the number of entries in each router's table, providing insight into memory overhead.
-  - **Path Analysis (traceroute)**: Shows the actual path taken by packets between `pc1` and `pc2`.
+  - **Path Analysis (traceroute)**: Shows the actual path taken by packets between `pc1` and `pc5`.
   - **Protocol Overhead**: Counts the number of control packets (LSA and HELLO) generated to maintain routing tables.
 
 ### Comparison with Standard OSPF
@@ -210,10 +210,10 @@ A implementação consiste em dois componentes principais:
     mininet> pingall
 
     # Teste a conectividade entre os PCs
-    mininet> pc1 ping pc2
+    mininet> pc1 ping pc5
 
     # Trace a rota entre os PCs
-    mininet> pc1 traceroute pc2
+    mininet> pc1 traceroute pc5
 
     # Visualize a tabela de roteamento em um roteador
     mininet> r1 route -n
@@ -225,7 +225,7 @@ A implementação consiste em dois componentes principais:
     mininet> link r2 r5 down
 
     # Aguarde alguns segundos e verifique a nova rota
-    mininet> pc1 traceroute pc2
+    mininet> pc1 traceroute pc5
     ```
 
 4.  **Saia da simulação**:
@@ -236,13 +236,13 @@ A implementação consiste em dois componentes principais:
 
 ### Topologia da Rede
 
-A topologia consiste em 5 roteadores e 2 PCs, com o `pc1` conectado ao `r1` e o `pc2` conectado ao `r5`.
+A topologia consiste em 5 roteadores e 2 PCs, com o `pc1` conectado ao `r1` e o `pc5` conectado ao `r5`.
 
 ```
     pc1 --- r1 -------- r2
             |  \        |  \
             |   \       |   \
-            r3   \      |    r5 --- pc2
+            r3   \      |    r5 --- pc5
             |     \     |   /
             |      \    |  /
             r4 ---------+/
@@ -262,9 +262,9 @@ A topologia consiste em 5 roteadores e 2 PCs, com o `pc1` conectado ao `r1` e o 
 O script `run_mininet.py` coleta e exibe automaticamente métricas de desempenho chave para avaliar o protocolo de roteamento. Essas métricas são fundamentais para a comparação e análise.
 
   - **Tempo de Convergência**: Mede o tempo necessário para que a rede atinja conectividade total após a inicialização.
-  - **QoS (iperf)**: Testa a vazão e o total de dados transferidos entre o `pc1` e o `pc2`.
+  - **QoS (iperf)**: Testa a vazão e o total de dados transferidos entre o `pc1` e o `pc5`.
   - **Tamanho da Tabela de Roteamento**: Informa o número de entradas na tabela de cada roteador, dando uma ideia do consumo de memória.
-  - **Análise de Caminho (traceroute)**: Mostra o caminho real que os pacotes percorrem entre o `pc1` e o `pc2`.
+  - **Análise de Caminho (traceroute)**: Mostra o caminho real que os pacotes percorrem entre o `pc1` e o `pc5`.
   - **Overhead do Protocolo**: Conta o número de pacotes de controle (LSA e HELLO) gerados para manter as tabelas de roteamento.
 
 ### Comparação com OSPF Padrão

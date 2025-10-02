@@ -3,6 +3,7 @@ import argparse, socket, json, threading, time
 from collections import defaultdict
 import heapq
 import subprocess
+import re
 
 class LSA:
     def __init__(self, origin, links, seq=None):
@@ -24,8 +25,25 @@ class Intent:
         self.max_latency = max_latency
         self.min_bandwidth = min_bandwidth
 
+    def __str__(self):
+        constraints = []
+        if self.max_latency is not None:
+            constraints.append(f"max_latency <= {self.max_latency}ms")
+        if self.min_bandwidth is not None:
+            constraints.append(f"min_bw >= {self.min_bandwidth}Mbps")
+
+        if not constraints:
+            return f"Intent[{self.src} -> {self.dst}] (No constraints)"
+        
+        return f"Intent[{self.src} -> {self.dst}], Constraints: [{', '.join(constraints)}]"
+
+    def __repr__(self):
+        return (f"Intent(src={self.src!r}, dst={self.dst!r}, "
+                f"max_latency={self.max_latency!r}, min_bandwidth={self.min_bandwidth!r})")
+
+
 class Router:
-    def __init__(self, name, port_base=10000):
+    def __init__(self, name, port_base=10000, control_base=20000):
         self.name = name
         self.port = port_base + int(name[1:])
         self.links = {}
@@ -36,6 +54,29 @@ class Router:
         self.active_neighbors = {}
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         self.sock.bind(("0.0.0.0", self.port))
+        self.intents = {}
+        self.control_port = control_base + int(name[1:])
+        self.control_sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        self.control_sock.bind(("0.0.0.0", self.control_port))
+
+    def add_intent(self, src, dst, max_latency=None, min_bandwidth=None):
+        self.intents[(src, dst)] = Intent(src, dst, max_latency, min_bandwidth)
+        print(f"[{self.name}] Intent adicionada: {src}->{dst}, "
+              f"max_latency={max_latency}, min_bw={min_bandwidth}")
+
+    def control_loop(self):
+        while True:
+            try:
+                data, addr = self.control_sock.recvfrom(4096)
+                msg = json.loads(data.decode())
+                if msg.get("type") == "INTENT":
+                    src, dst = msg.get("src"), msg.get("dst")
+                    max_lat = msg.get("max_latency")
+                    min_bw = msg.get("min_bandwidth")
+                    self.add_intent(src, dst, max_latency=max_lat, min_bandwidth=min_bw)
+                    self.update_routing_table()
+            except Exception as e:
+                print(f"[{self.name}] Erro no control_loop: {e}")
 
     def add_link_info(self, peer_name, peer_ip, subnet, cost, latency, bandwidth, peer_port):
         self.links[peer_name] = {
@@ -45,6 +86,29 @@ class Router:
         }
         self.peer_ports[peer_name] = int(peer_port)
         self.connected_subnets.add(subnet)
+
+    def find_router_for_host(self, hostname):
+        """
+        Encontra o nome do roteador que anuncia a sub-rede de um host (ex: 'pc1').
+        Ele faz isso procurando no LSDB por um roteador que tenha a sub-rede correspondente
+        como um link "stub". Ex: pc1 -> 172.16.1.0/24.
+        """
+        match = re.match(r'pc(\d+)', hostname)
+        if not match:
+            return None # Não é um nome de host de PC que conhecemos
+
+        pc_id = match.group(1)
+        target_subnet = f"172.16.{pc_id}.0/24"
+
+        print("target_subnet:", target_subnet)
+
+        for router_name, lsa in self.lsdb.items():
+            for link_info in lsa.links.values():
+                print("link_info:", link_info)
+                # Verifica se o link é uma rede stub e se a sub-rede bate
+                if link_info.get("stub") and link_info.get("subnet") == target_subnet:
+                    return router_name
+        return None
 
     def add_stub_network(self, subnet, cost):
         """Adiciona uma rede stub (com PCs) que deve ser anunciada."""
@@ -153,8 +217,38 @@ class Router:
             if not dest_router_name:
                 continue
 
-            intent = Intent(self.name, dest_router_name)
-            path = self.compute_path(intent, graph)
+            applicable_intent = None
+            # Itera sobre todas as intents armazenadas
+            for intent in self.intents.values():
+                # Para cada intent, descobre qual roteador está conectado ao host de destino
+                intent_dest_router = self.find_router_for_host(intent.dst)
+                
+                # Se o roteador de destino da intent for o mesmo para o qual estamos calculando a rota agora...
+                if intent_dest_router == dest_router_name:
+                    # ... então encontramos a intent correta a ser aplicada.
+                    applicable_intent = intent
+                    print(f"[{self.name}] Intent para {intent.src}->{intent.dst} é aplicável para a rota até {dest_router_name}. Aplicando restrições.")
+                    break
+            
+            path = None
+            if applicable_intent:
+                # 1. Primeira tentativa: Tenta encontrar um caminho que satisfaça a intent
+                print(f"[{self.name}] Tentando encontrar caminho para {dest_router_name} com a intent: {applicable_intent}")
+                path_intent = Intent(self.name, dest_router_name, 
+                                     applicable_intent.max_latency, 
+                                     applicable_intent.min_bandwidth)
+                path = self.compute_path(path_intent, graph)
+
+            # 2. Segunda tentativa (Fallback): Se a primeira tentativa falhou, ou se não havia intent...
+            if not path:
+                # Se entramos aqui porque a tentativa com intent falhou, imprime uma mensagem de aviso
+                if applicable_intent:
+                    print(f"[{self.name}] AVISO: Não foi possível encontrar um caminho para {dest_router_name} que satisfaça a intent.")
+                
+                print(f"[{self.name}] Calculando o melhor caminho para {dest_router_name} sem restrições.")
+                # Calcula o caminho sem nenhuma restrição
+                default_intent = Intent(self.name, dest_router_name)
+                path = self.compute_path(default_intent, graph)
 
             if path and len(path) > 1:
                 next_hop_router = path[1]
@@ -185,7 +279,7 @@ class Router:
                 continue
             if node == intent.dst:
                 return path
-            
+
             for (nbr, metrics) in graph.get(node, []):
                 n_cost = metrics.get("cost", 1)
                 n_lat = metrics.get("latency", 0)
@@ -205,6 +299,7 @@ class Router:
     def run(self):
         print(f"[{self.name}] Daemon iniciado. Vizinhos: {list(self.peer_ports.keys())}")
         threading.Thread(target=self.receive_loop, daemon=True).start()
+        threading.Thread(target=self.control_loop, daemon=True).start()
         time.sleep(2)
         
         while True:
