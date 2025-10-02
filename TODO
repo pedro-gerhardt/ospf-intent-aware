@@ -15,8 +15,8 @@
     [x] - nice to have - métrica reconvergência
 [] - entender diferença de tempo de convergência -> Murilo Schuck
 [] - quem sabe adicionar algo a mais? LSAs diferenciais? não.
-[x] - gravar demos -> Pedro Gerhardt
-[x] - atualizar readme -> Gustavo Parcianello
+[x] - gravar demos 
+[] - atualizar readme -> Pedro Gerhardt
 
 demo
 parte 1 - demonstrar uma rota se adaptando a queda de interface
