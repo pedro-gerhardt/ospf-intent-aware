@@ -151,13 +151,11 @@ This forces r1 (listening on port 20001) to install a policy that prefers paths 
 
 ### Demo Videos
 
-*This section will contain links and descriptions of demonstration videos showing:*
-
-  - **Basic network convergence** and routing between PCs.
+  - **Basic network convergence**: routing between PCs.
   - **Link failure recovery demonstration**: showing how routes adapt automatically when a link is brought down.
   - **Intent-based path selection**: demonstrating how the network chooses a different path when a low-latency intent is specified, even if it's not the default shortest path.
 
-*[Videos to be added]*
+The video is presented at the end of the README.md.
 
 -----
 
@@ -315,7 +313,7 @@ Isso força o `r1` (escutando na porta 20001) a instalar uma política que prefe
   - **Demonstração de recuperação de falha de enlace**: mostrando como as rotas se adaptam automaticamente quando um link é desativado.
   - **Seleção de caminho baseada em intenções**: demonstrando como a rede escolhe um caminho diferente quando uma intenção de baixa latência é especificada, mesmo que não seja o caminho mais curto padrão.
 
-*[Vídeos a serem adicionados]*
+https://github.com/user-attachments/assets/36c99780-64de-45db-b548-5b83739ae645
 
 -----
 
