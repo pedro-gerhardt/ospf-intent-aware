@@ -107,8 +107,8 @@ The topology consists of 5 routers and 2 PCs, with `pc1` connected to `r1` and `
 
 **Link Characteristics**:
 
-  - r1-r2: 100 Mbps, 5ms delay
-  - r1-r3: 10 Mbps, 2ms delay
+  - r1-r2: 20 Mbps, 5ms delay
+  - r1-r3: 40 Mbps, 2ms delay
   - r2-r3: 50 Mbps, 5ms delay
   - r2-r5: 80 Mbps, 7ms delay
   - r3-r4: 200 Mbps, 1ms delay
@@ -123,6 +123,21 @@ The `run_mininet.py` script automatically collects and displays key performance 
   - **Routing Table Size**: Reports the number of entries in each router's table, providing insight into memory overhead.
   - **Path Analysis (traceroute)**: Shows the actual path taken by packets between `pc1` and `pc5`.
   - **Protocol Overhead**: Counts the number of control packets (LSA and HELLO) generated to maintain routing tables.
+  - **Reconvergence Time**: Dynamic link failure recovery
+  - **Intent-Aware Routing Test**:
+    - Default shortest path
+    - With max_latency or min_bandwidth constraints
+    - Link failures with fallback path computation
+
+### Injecting Intents
+
+Intents can be sent to any router via UDP control socket:
+
+```echo '{"type":"INTENT","src":"pc1","dst":"pc5","min_bandwidth":30}' \
+  | nc -u -w1 127.0.0.1 20001
+```
+
+This forces r1 (listening on port 20001) to install a policy that prefers paths with at least 30 Mbps bandwidth between pc1 and pc5.
 
 ### Comparison with Standard OSPF
 
@@ -250,8 +265,8 @@ A topologia consiste em 5 roteadores e 2 PCs, com o `pc1` conectado ao `r1` e o 
 
 **Características dos Enlaces**:
 
-  - r1-r2: 100 Mbps, 5ms de delay
-  - r1-r3: 10 Mbps, 2ms de delay
+  - r1-r2: 20 Mbps, 5ms de delay
+  - r1-r3: 40 Mbps, 2ms de delay
   - r2-r3: 50 Mbps, 5ms de delay
   - r2-r5: 80 Mbps, 7ms de delay
   - r3-r4: 200 Mbps, 1ms de delay
@@ -266,7 +281,22 @@ O script `run_mininet.py` coleta e exibe automaticamente métricas de desempenho
   - **Tamanho da Tabela de Roteamento**: Informa o número de entradas na tabela de cada roteador, dando uma ideia do consumo de memória.
   - **Análise de Caminho (traceroute)**: Mostra o caminho real que os pacotes percorrem entre o `pc1` e o `pc5`.
   - **Overhead do Protocolo**: Conta o número de pacotes de controle (LSA e HELLO) gerados para manter as tabelas de roteamento.
+  - **Teste de Roteamento Baseado em Intent**:
+    - Roda menos custosa por padrão
+    - Com restrições de latência e largura de banda
+    - Falhas de conexões e cálculo de caminho por fallback
 
+### Injetando Intents
+
+As intents podem ser enviadas para qualquer roteador via soquete de controle UDP:
+
+```bash
+echo '{"type":"INTENT","src":"pc1","dst":"pc5","min_bandwidth":30}' \
+  | nc -u -w1 127.0.0.1 20001
+```
+
+Isso força o `r1` (escutando na porta 20001) a instalar uma política que prefere caminhos com pelo menos 30 Mbps de largura de banda entre pc1 e pc5.
+  
 ### Comparação com OSPF Padrão
 
 *Esta seção conterá comparações detalhadas entre nossa implementação baseada em intenções e um protocolo OSPF padrão, com base nas métricas coletadas automaticamente:*
