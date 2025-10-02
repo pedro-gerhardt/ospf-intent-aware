@@ -335,10 +335,6 @@ https://github.com/user-attachments/assets/36c99780-64de-45db-b548-5b83739ae645
 
 -----
 
-## License
-
-*[Add your license information here]*
-
 ## Contributors
 
   - Gustavo Parcianello Cardona
