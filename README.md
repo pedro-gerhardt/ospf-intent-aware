@@ -147,7 +147,16 @@ This forces r1 (listening on port 20001) to install a policy that prefers paths 
   - **Resource utilization metrics** (routing table size, protocol overhead).
   - **Path selection differences** under various intent-based constraints (e.g., low latency vs. high bandwidth).
 
-*[Content to be added]*
+| Metric | Standard OSPF (Logs) | Intent-Aware OSPF (Video) | Analysis & Observations |
+| :--- | :--- | :--- | :--- |
+| **Initial Convergence** | `56.0394 seconds` | `22.7599 seconds` | The **Intent-Aware** implementation was **2.4x faster** in establishing initial network-wide connectivity. |
+| **Dynamic Reconvergence** | `0.5362 seconds` | `5.0449 seconds` | **Standard OSPF was ~9.4x faster** in finding a new route after the `r2-r5` link failure. This may indicate that the additional logic for evaluating "intents" in your implementation adds overhead to the route recalculation process. |
+| **QoS (iperf Throughput)** | `20.86 Mbits/sec` | `19.04 Mbits/sec` | Throughput was very similar in both scenarios, with a slight advantage for Standard OSPF. The difference is not significant. |
+| **Routing Table** | `47 routes` | `40 routes` | Standard OSPF generated a slightly higher number of total routes in the network. |
+| **Protocol Overhead (LSA)** | `12 LSA packets` | `20 LSA packets` | The **Intent-Aware** version generated **66% more LSA packets**, which is expected as it needs to propagate more state information (like latency and bandwidth) to make intelligent decisions. |
+| **Default Route Latency** | `~25 ms` | `~24 ms` | The default route latency is **virtually identical** in both systems. This shows that, in this scenario, standard OSPF also selected an efficient path. The Intent-Aware advantage is not in the default route itself, but in its ability to change it dynamically. |
+| **Alternate Route (Post-Failure)**| `r1 -> r3 -> r4 -> r5` | `r1 -> r3 -> r4 -> r5` | Both systems demonstrated correctness by identifying the same viable alternate route after the main link (`r2-r5`) failure. |
+| **Intent-Based Route Selection** | Not applicable | Route switched to `~18 ms` | Only the Intent-Aware implementation was able to receive an intent (`max_latency=50ms`) and proactively switch the traffic flow to a route that met the requirement, **improving latency by 25%** compared to its own default route. |
 
 ### Demo Videos
 
@@ -303,7 +312,16 @@ Isso força o `r1` (escutando na porta 20001) a instalar uma política que prefe
   - **Métricas de utilização de recursos** (tamanho da tabela de roteamento, overhead do protocolo).
   - **Diferenças na seleção de caminhos** sob várias restrições baseadas em intenção (ex: baixa latência vs. alta largura de banda).
 
-*[Conteúdo a ser adicionado]*
+| Métrica | OSPF Normal (Logs) | OSPF Intent-Aware (Vídeo) | Análise e Observações |
+| :--- | :--- | :--- | :--- |
+| **Convergência Inicial** | `56.0394 segundos` | `22.7599 segundos` | A implementação **Intent-Aware foi 2.4x mais rápida** para estabelecer a conectividade inicial em toda a rede. |
+| **Reconvergência Dinâmica** | `0.5362 segundos` | `5.0449 segundos` | O **OSPF Normal foi ~9.4x mais rápido** para encontrar uma nova rota após a falha do link `r2-r5`. Isso pode indicar que a lógica adicional para avaliar as "intenções" na sua implementação adiciona um overhead ao processo de recálculo da rota. |
+| **QoS (Vazão iperf)** | `20.86 Mbits/sec` | `19.04 Mbits/sec` | A vazão foi muito similar em ambos os cenários, com uma ligeira vantagem para o OSPF Normal. A diferença não é significativa. |
+| **Tabela de Roteamento** | `47 rotas` | `40 rotas` | O OSPF Normal gerou um número ligeiramente maior de rotas totais na rede. |
+| **Overhead de Protocolo (LSA)** | `12 pacotes LSA` | `20 pacotes LSA` | A versão **Intent-Aware gerou 66% mais pacotes LSA**, o que é esperado, já que precisa propagar mais informações de estado (como latência e banda) para tomar decisões inteligentes. |
+| **Latência da Rota Padrão** | `~25 ms` | `~24 ms` | A latência da rota padrão é **praticamente idêntica** em ambos os sistemas. Isso mostra que, neste cenário, o OSPF padrão também selecionou um caminho eficiente. A vantagem do Intent-Aware não está na rota padrão, mas na sua capacidade de alterá-la dinamicamente. |
+| **Rota Alternativa (Pós-Falha)** | `r1 -> r3 -> r4 -> r5` | `r1 -> r3 -> r4 -> r5` | Ambos os sistemas demonstraram corretude ao identificar a mesma rota alternativa viável após a falha do link principal (`r2-r5`). |
+| **Seleção de Rota por Intenção** | Não aplicável | Rota alterada para `~18 ms` | Apenas a implementação Intent-Aware foi capaz de receber uma intenção (`max_latency=50ms`) e proativamente alterar o fluxo de tráfego para uma rota que atendesse ao requisito, **melhorando a latência em 25%** em relação à sua própria rota padrão. |
 
 ### Vídeos de Demonstração
 
